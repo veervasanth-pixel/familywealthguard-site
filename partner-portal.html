@@ -495,7 +495,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 </div><!-- end main -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
-// v9-fetch-noCDN
+// v10-debug-auth
 // Safety timeout — if portal doesn't load in 8 seconds show error
 setTimeout(() => {
   const g = document.getElementById('auth-guard');
@@ -514,33 +514,59 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // ── Auth guard using plain fetch (no SDK needed) ────────────────
 (async () => {
   try {
-    // Get session from URL hash (after OAuth redirect) or localStorage
     let accessToken = null;
     let userEmail = null;
     let userName = null;
 
-    // Check URL hash for access_token (fresh OAuth redirect)
+    // Method 1: Check URL hash (fresh Google OAuth redirect)
     const hash = window.location.hash;
     if (hash && hash.includes('access_token')) {
       const params = new URLSearchParams(hash.substring(1));
       accessToken = params.get('access_token');
-      // Clean URL
       history.replaceState(null, '', window.location.pathname);
+      console.log('Token from URL hash:', accessToken ? 'found' : 'missing');
     }
 
-    // If no token in URL, check localStorage (existing session)
+    // Method 2: Scan ALL localStorage keys for any Supabase token
     if (!accessToken) {
-      const stored = localStorage.getItem('sb-cdbmvguessbzhnmragne-auth-token');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          accessToken = parsed.access_token;
-        } catch(e) {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          try {
+            const val = JSON.parse(localStorage.getItem(key));
+            if (val && val.access_token) {
+              accessToken = val.access_token;
+              console.log('Token from localStorage key:', key);
+              break;
+            }
+          } catch(e) {}
+        }
       }
     }
 
+    // Method 3: Check sessionStorage too
+    if (!accessToken) {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          try {
+            const val = JSON.parse(sessionStorage.getItem(key));
+            if (val && val.access_token) {
+              accessToken = val.access_token;
+              console.log('Token from sessionStorage key:', key);
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+    }
+
+    console.log('Final token status:', accessToken ? 'FOUND' : 'NOT FOUND');
+    console.log('localStorage keys:', Object.keys(localStorage));
+
     // No token found — redirect to login
     if (!accessToken) {
+      console.log('No token — redirecting to login');
       window.location.href = '/partner-login.html';
       return;
     }
