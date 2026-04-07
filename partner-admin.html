@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin · Partner Approvals · FamilyGuard360</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A0E1A; --navy2:#0F1523; --navy3:#141B2E;
+  --gold:#C5A052; --gold-bright:#E8C878; --gold-glow:rgba(197,160,82,0.15);
+  --emerald:#2E7D5B; --emerald-bright:#3FA373;
+  --ink:#F5F1E8; --ink-dim:#C9C0A8; --ink-soft:#9A9382; --ink-muted:#6B6555;
+  --line:rgba(197,160,82,0.12); --line-soft:rgba(255,255,255,0.07);
+  --card:#0F1523; --red:#E05858; --ease:cubic-bezier(0.16,1,0.3,1);
+}
+body{background:var(--navy);color:var(--ink);font-family:'Inter',sans-serif;min-height:100vh;padding:0}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(197,160,82,0.05) 0%,transparent 55%);pointer-events:none}
+
+/* Auth guard */
+#auth-guard{position:fixed;inset:0;z-index:9999;background:var(--navy);display:flex;align-items:center;justify-content:center}
+.guard-spinner{width:40px;height:40px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--gold);animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.topbar{
+  padding:1.2rem 2.5rem;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(10,14,26,0.85);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:100;
+}
+.brand{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--gold);display:flex;align-items:center;gap:0.6rem}
+.brand-dot{width:7px;height:7px;background:var(--gold);border-radius:50%}
+.admin-badge{font-size:0.62rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;padding:0.3rem 0.8rem;border-radius:50px;background:rgba(197,160,82,0.1);border:1px solid rgba(197,160,82,0.3);color:var(--gold)}
+.btn-signout{background:transparent;border:1px solid var(--line-soft);color:var(--ink-soft);font-size:0.75rem;padding:0.45rem 0.9rem;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s}
+.btn-signout:hover{border-color:var(--red);color:var(--red)}
+
+.content{max-width:1100px;margin:0 auto;padding:2.5rem 2rem}
+.page-title{font-family:'Fraunces',serif;font-size:1.8rem;margin-bottom:0.4rem}
+.page-sub{font-size:0.88rem;color:var(--ink-dim);margin-bottom:2rem}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+.sc{background:var(--card);border:1px solid var(--line-soft);border-radius:12px;padding:1.1rem 1.3rem}
+.sc .sc-label{font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:0.4rem}
+.sc .sc-val{font-family:'Fraunces',serif;font-size:2rem;line-height:1}
+.sc.pending .sc-val{color:var(--gold)}
+.sc.approved .sc-val{color:var(--emerald-bright)}
+.sc.rejected .sc-val{color:var(--red)}
+.sc.total .sc-val{color:var(--ink)}
+
+/* Tabs */
+.tab-bar{display:flex;gap:0.3rem;margin-bottom:1.5rem;background:var(--navy2);border-radius:10px;padding:0.3rem;width:fit-content}
+.tab-btn{padding:0.5rem 1.2rem;border-radius:7px;border:none;background:transparent;color:var(--ink-soft);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s}
+.tab-btn.active{background:var(--navy3);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+
+/* Table */
+.table-wrap{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--navy3);border-bottom:1px solid var(--line-soft)}
+th{padding:0.85rem 1.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);text-align:left;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--line-soft);transition:background 0.15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,0.02)}
+td{padding:1rem 1.2rem;font-size:0.85rem;color:var(--ink-dim);vertical-align:middle}
+td .name{font-weight:600;color:var(--ink);margin-bottom:0.15rem}
+td .email{font-size:0.75rem;color:var(--ink-soft)}
+
+.status-pill{
+  display:inline-flex;align-items:center;gap:0.35rem;
+  font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  padding:0.25rem 0.7rem;border-radius:50px;border:1px solid;
+}
+.status-pill.pending{color:var(--gold);border-color:rgba(197,160,82,0.35);background:rgba(197,160,82,0.08)}
+.status-pill.approved{color:var(--emerald-bright);border-color:rgba(46,125,91,0.35);background:rgba(46,125,91,0.08)}
+.status-pill.rejected{color:var(--red);border-color:rgba(224,88,88,0.35);background:rgba(224,88,88,0.08)}
+.status-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+
+.action-btns{display:flex;gap:0.5rem}
+.btn-approve{
+  padding:0.45rem 0.9rem;border-radius:7px;border:1px solid rgba(46,125,91,0.4);
+  background:rgba(46,125,91,0.1);color:var(--emerald-bright);
+  font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all 0.2s;display:flex;align-items:center;gap:0.35rem;
+}
+.btn-approve:hover{background:rgba(46,125,91,0.2);border-color:var(--emerald-bright)}
+.btn-approve svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5}
+.btn-reject{
+  padding:0.45rem 0.9rem;border-radius:7px;border:1px solid rgba(224,88,88,0.3);
+  background:rgba(224,88,88,0.08);color:var(--red);
+  font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all 0.2s;
+}
+.btn-reject:hover{background:rgba(224,88,88,0.15);border-color:var(--red)}
+.btn-revoke{
+  padding:0.45rem 0.9rem;border-radius:7px;border:1px solid var(--line-soft);
+  background:transparent;color:var(--ink-soft);
+  font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all 0.2s;
+}
+.btn-revoke:hover{border-color:var(--red);color:var(--red)}
+
+.empty-state{padding:4rem;text-align:center;color:var(--ink-soft)}
+.empty-state svg{width:40px;height:40px;stroke:var(--ink-muted);fill:none;stroke-width:1.5;margin:0 auto 1rem;display:block}
+.loading{padding:3rem;text-align:center;color:var(--ink-soft);font-size:0.88rem}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--navy3);border:1px solid var(--gold);border-radius:10px;
+  padding:0.8rem 1.5rem;font-size:0.85rem;font-weight:600;color:var(--ink);
+  opacity:0;transition:opacity 0.3s,transform 0.3s;pointer-events:none;z-index:9999;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--emerald-bright);color:var(--emerald-bright)}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+@media(max-width:900px){
+  .stats-row{grid-template-columns:1fr 1fr}
+  .content{padding:1.5rem 1rem}
+  .topbar{padding:1rem}
+  th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4){display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="auth-guard"><div class="guard-spinner"></div></div>
+<div class="toast" id="toast"></div>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div class="brand"><div class="brand-dot"></div>FamilyGuard360</div>
+    <span class="admin-badge">Admin</span>
+  </div>
+  <button class="btn-signout" id="signout-btn">Sign Out</button>
+</div>
+
+<div class="content">
+  <div class="page-title">Partner Approvals</div>
+  <p class="page-sub">Review, approve, or reject partner registration requests for the Green Team portal.</p>
+
+  <div class="stats-row">
+    <div class="sc pending"><div class="sc-label">Pending Review</div><div class="sc-val" id="cnt-pending">—</div></div>
+    <div class="sc approved"><div class="sc-label">Approved</div><div class="sc-val" id="cnt-approved">—</div></div>
+    <div class="sc rejected"><div class="sc-label">Rejected</div><div class="sc-val" id="cnt-rejected">—</div></div>
+    <div class="sc total"><div class="sc-label">Total Requests</div><div class="sc-val" id="cnt-total">—</div></div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-filter="pending">⏳ Pending</button>
+    <button class="tab-btn" data-filter="approved">✅ Approved</button>
+    <button class="tab-btn" data-filter="rejected">❌ Rejected</button>
+    <button class="tab-btn" data-filter="all">All</button>
+  </div>
+
+  <div class="table-wrap">
+    <div class="loading" id="loading">Loading partners…</div>
+    <table id="partners-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Partner</th>
+          <th>Phone / NPN</th>
+          <th>State</th>
+          <th>Registered</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="partners-body"></tbody>
+    </table>
+    <div class="empty-state" id="empty-state" style="display:none">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+      No partners in this category yet.
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ADMIN CONFIG ────────────────────────────────────────
+// Add your own email below — only this email can access admin
+const ADMIN_EMAIL = 'veervasanth@familyguard.life';
+const SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
+// Service role key for admin operations (keep this private — never put in public code)
+// For production, move approval actions to a Supabase Edge Function
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTUzMTAxMCwiZXhwIjoyMDkxMTA3MDEwfQ.DfDwRiKxx2012mbuMeS2u2AeTwm135Dit1-BLKy2TII';
+
+const { createClient } = supabase;
+const sb      = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+let currentFilter = 'pending';
+let allPartners = [];
+
+// ── Auth guard ──────────────────────────────────────────
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = '/partner-login.html'; return; }
+  if (session.user.email !== ADMIN_EMAIL) {
+    window.location.href = '/partner-portal.html'; return;
+  }
+  document.getElementById('auth-guard').style.display = 'none';
+  loadPartners();
+})();
+
+// ── Load partners ───────────────────────────────────────
+async function loadPartners() {
+  const { data, error } = await sbAdmin
+    .from('partner_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) { showToast('Error loading partners: ' + error.message, 'error'); return; }
+
+  allPartners = data || [];
+  updateCounts();
+  renderTable(currentFilter);
+}
+
+function updateCounts() {
+  document.getElementById('cnt-pending').textContent  = allPartners.filter(p => p.status === 'pending').length;
+  document.getElementById('cnt-approved').textContent = allPartners.filter(p => p.status === 'approved').length;
+  document.getElementById('cnt-rejected').textContent = allPartners.filter(p => p.status === 'rejected').length;
+  document.getElementById('cnt-total').textContent    = allPartners.length;
+}
+
+function renderTable(filter) {
+  const loading = document.getElementById('loading');
+  const table   = document.getElementById('partners-table');
+  const empty   = document.getElementById('empty-state');
+  const tbody   = document.getElementById('partners-body');
+
+  loading.style.display = 'none';
+  const filtered = filter === 'all' ? allPartners : allPartners.filter(p => p.status === filter);
+
+  if (filtered.length === 0) {
+    table.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  empty.style.display = 'none'; table.style.display = 'table';
+  tbody.innerHTML = filtered.map(p => `
+    <tr id="row-${p.id}">
+      <td>
+        <div class="name">${esc(p.full_name || '—')}</div>
+        <div class="email">${esc(p.email || '—')}</div>
+      </td>
+      <td>
+        <div>${esc(p.phone || '—')}</div>
+        <div style="font-size:0.72rem;color:var(--ink-soft)">NPN: ${esc(p.npn || '—')}</div>
+      </td>
+      <td>${esc(p.state_licensed || '—')}</td>
+      <td style="font-size:0.78rem;color:var(--ink-soft)">${formatDate(p.created_at)}</td>
+      <td><span class="status-pill ${p.status}">${p.status}</span></td>
+      <td>
+        <div class="action-btns">
+          ${p.status !== 'approved' ? `<button class="btn-approve" onclick="approvePartner('${p.id}','${esc(p.email)}','${esc(p.full_name)}')"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Approve</button>` : ''}
+          ${p.status !== 'rejected' ? `<button class="btn-reject" onclick="rejectPartner('${p.id}','${esc(p.email)}')">Reject</button>` : ''}
+          ${p.status === 'approved' ? `<button class="btn-revoke" onclick="rejectPartner('${p.id}','${esc(p.email)}')">Revoke</button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Approve ─────────────────────────────────────────────
+async function approvePartner(id, email, name) {
+  const { error } = await sbAdmin
+    .from('partner_profiles')
+    .update({ status: 'approved', approved_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  // Send approval email via Supabase (configure SMTP in Supabase dashboard)
+  // In production: trigger a Supabase Edge Function or Zapier webhook here
+  // For now we update the UI
+  allPartners = allPartners.map(p => p.id === id ? { ...p, status: 'approved' } : p);
+  updateCounts(); renderTable(currentFilter);
+  showToast(`✅ ${name} approved — they can now log in.`, 'success');
+
+  // Notify via a webhook (optional - set up in Zapier or Make)
+  triggerApprovalWebhook({ id, email, name, action: 'approved' });
+}
+
+// ── Reject / Revoke ─────────────────────────────────────
+async function rejectPartner(id, email) {
+  const { error } = await sbAdmin
+    .from('partner_profiles')
+    .update({ status: 'rejected' })
+    .eq('id', id);
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  allPartners = allPartners.map(p => p.id === id ? { ...p, status: 'rejected' } : p);
+  updateCounts(); renderTable(currentFilter);
+  showToast('Partner access revoked.', 'error');
+}
+
+// ── Webhook (optional) ──────────────────────────────────
+function triggerApprovalWebhook(payload) {
+  // Set up a Zapier webhook URL here to auto-send the approval email
+  const ZAPIER_WEBHOOK = 'YOUR_ZAPIER_WEBHOOK_URL'; // optional
+  if (!ZAPIER_WEBHOOK || ZAPIER_WEBHOOK === 'YOUR_ZAPIER_WEBHOOK_URL') return;
+  fetch(ZAPIER_WEBHOOK, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).catch(() => {});
+}
+
+// ── Tab filter ──────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('partners-table').style.display = 'none';
+    setTimeout(() => renderTable(currentFilter), 100);
+  });
+});
+
+// ── Helpers ─────────────────────────────────────────────
+function esc(str) { return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── Sign out ────────────────────────────────────────────
+document.getElementById('signout-btn').addEventListener('click', async () => {
+  await sb.auth.signOut(); window.location.href = '/partner-login.html';
+});
+
+// Make functions global
+window.approvePartner = approvePartner;
+window.rejectPartner  = rejectPartner;
+</script>
+</body>
+</html>
