@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Partner Portal · FamilyGuard360</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
 <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -342,7 +342,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
         </div>
         <div class="stat-card">
           <div class="sc-label">Team Email</div>
-          <div class="sc-val" style="font-size:0.9rem;color:var(--ink-dim);margin-top:0.4rem"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="83f5e6e6f1f5e2f0e2edf7ebc3e5e2eeeaeffae4f6e2f1e7adefeae5e6">[email&#160;protected]</a></div>
+          <div class="sc-val" style="font-size:0.9rem;color:var(--ink-dim);margin-top:0.4rem"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="37415252454156445659435f7751565a5e5b4e5042564553195b5e5152">[email&#160;protected]</a></div>
           <div class="sc-sub">Response within 4 business hours</div>
         </div>
       </div>
@@ -456,7 +456,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
           <div class="ann-body">
             <div class="ann-meta">📅 April 4, 2026 · From Veer</div>
             <h4>🎉 Dallas Training Event — May 7–11, 2026 · Loews Arlington Hotel</h4>
-            <p>Green Team's biggest event of the year is confirmed. All approved partners are invited. This is a 5-day intensive covering IUL conversion, FNA mastery, recruiting, and field ride-alongs. <strong>Register by April 20</strong> to lock in the group rate. <a href="/cdn-cgi/l/email-protection#6e180b0b1c180f1d0f001a062e080f03070217091b0f1c0a400207080b">Email Veer</a> to confirm your seat.</p>
+            <p>Green Team's biggest event of the year is confirmed. All approved partners are invited. This is a 5-day intensive covering IUL conversion, FNA mastery, recruiting, and field ride-alongs. <strong>Register by April 20</strong> to lock in the group rate. <a href="/cdn-cgi/l/email-protection#95e3f0f0e7e3f4e6f4fbe1fdd5f3f4f8fcf9ecf2e0f4e7f1bbf9fcf3f0">Email Veer</a> to confirm your seat.</p>
           </div>
         </div>
         <div class="ann-card">
@@ -496,6 +496,19 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 </div><!-- end main -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// Safety timeout — if portal doesn't load in 8 seconds, show error
+setTimeout(() => {
+  const g = document.getElementById('auth-guard');
+  if (g && g.style.display !== 'none') {
+    g.innerHTML = '<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
+      '<p style="color:#F08080;font-size:1rem;margin-bottom:1rem">Portal failed to load.</p>' +
+      '<p style="color:rgba(255,255,255,0.5);font-size:0.82rem;margin-bottom:1.5rem">This is usually a network issue loading the auth library. Please try refreshing.</p>' +
+      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700;margin-right:0.5rem">Refresh Page</button>' +
+      '<button onclick="window.location.href='/partner-login.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer">Back to Login</button>' +
+      '</div>';
+  }
+}, 8000);
+
 const SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
 const { createClient } = supabase;
@@ -503,37 +516,34 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── Auth guard ──────────────────────────────────────────
 (async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { window.location.href = '/partner-login.html'; return; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
 
-  const { data: profile } = await sb
-    .from('partner_profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
+    if (!session) {
+      window.location.href = '/partner-login.html';
+      return;
+    }
 
-  if (!profile || profile.status !== 'approved') {
-    await sb.auth.signOut();
-    window.location.href = '/partner-login.html';
-    return;
-  }
+    // Session valid — load portal immediately, no profile check
+    const email = session.user.email || '';
+    const name  = session.user.user_metadata?.full_name || email.split('@')[0] || 'Partner';
+    const firstName = name.split(' ')[0];
+    const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
-  // Populate UI
-  const name = profile.full_name || session.user.email;
-  const firstName = name.split(' ')[0];
-  const initials = name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-state').textContent = email;
+    document.getElementById('first-name').textContent = firstName;
+    document.getElementById('auth-guard').style.display = 'none';
 
-  document.getElementById('user-avatar').textContent = initials;
-  document.getElementById('user-name').textContent = name;
-  document.getElementById('user-state').textContent = profile.state_licensed || profile.email;
-  document.getElementById('first-name').textContent = firstName;
+    if (window.Calendly) Calendly.initInlineWidgets();
 
-  // Remove auth guard
-  document.getElementById('auth-guard').style.display = 'none';
-
-  // Init Calendly widget
-  if (window.Calendly) {
-    Calendly.initInlineWidgets();
+  } catch(err) {
+    document.getElementById('auth-guard').innerHTML =
+      '<div style="color:#F5F1E8;text-align:center;padding:2rem">' +
+      '<p style="color:#F08080;margin-bottom:1rem">Error: ' + err.message + '</p>' +
+      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.6rem 1.4rem;border-radius:8px;cursor:pointer;font-weight:600">Try Again</button>' +
+      '</div>';
   }
 })();
 
