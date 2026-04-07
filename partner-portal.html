@@ -254,7 +254,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 <body>
 
 <!-- Auth guard -->
-<div id="auth-guard"><div style="text-align:center;color:var(--ink-soft);font-size:0.9rem;font-family:'Inter',sans-serif">Verifying access…</div></div>
+<div id="auth-guard"><div id="auth-status" style="text-align:center;color:var(--ink-soft);font-size:0.9rem;font-family:'Inter',sans-serif">Verifying access…</div></div>
 
 <!-- Sidebar overlay (mobile) -->
 <div class="sidebar-overlay" id="sb-overlay"></div>
@@ -503,7 +503,14 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   var STORAGE_KEY = 'sb-cdbmvguessbzhnmragne-auth-token';
 
   function redirect() {
-    window.location.replace('/partner-login.html');
+    var s = document.getElementById('auth-status');
+    if(s) s.textContent = 'No session found — redirecting to login…';
+    setTimeout(function(){ window.location.replace('/partner-login.html'); }, 1500);
+  }
+
+  function setStatus(msg) {
+    var s = document.getElementById('auth-status');
+    if(s) s.textContent = msg;
   }
 
   function showPortal(user) {
@@ -528,6 +535,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   }
 
   function verifyAndShow(token) {
+    setStatus('Calling Supabase to verify token…');
     fetch(URL + '/auth/v1/user', {
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -545,17 +553,17 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
           showPortal(user);
         });
       } else {
-        // Token rejected — clear and redirect
-        localStorage.removeItem(STORAGE_KEY);
-        redirect();
+        // Show error on screen then redirect
+        setStatus('Supabase returned error ' + r.status + ' — redirecting to login…');
+        setTimeout(function(){ localStorage.removeItem(STORAGE_KEY); redirect(); }, 2000);
       }
-    }).catch(function() {
-      // Network error — show portal if we have user data cached
+    }).catch(function(err) {
+      setStatus('Network error — ' + (err && err.message ? err.message : 'fetch failed'));
       var cached = getStoredSession();
       if (cached && cached.user) {
         showPortal(cached.user);
       } else {
-        redirect();
+        setTimeout(function(){ redirect(); }, 2000);
       }
     });
   }
@@ -585,10 +593,12 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   // ── Main flow ──────────────────────────────────────────────
   // Step 1: Check URL hash (fresh OAuth redirect)
   var hash = window.location.hash;
+  setStatus('Checking URL for token…');
   if (hash && hash.includes('access_token=')) {
     var params = new URLSearchParams(hash.substring(1));
     var token  = params.get('access_token');
     if (token) {
+      setStatus('Token found — verifying with Supabase…');
       history.replaceState(null, '', window.location.pathname);
       verifyAndShow(token);
       return;
@@ -596,13 +606,16 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   }
 
   // Step 2: Check stored session
+  setStatus('Checking saved session…');
   var stored = getStoredSession();
   if (stored && stored.access_token) {
+    setStatus('Saved session found — verifying…');
     verifyAndShow(stored.access_token);
     return;
   }
 
   // Step 3: No token anywhere — redirect
+  setStatus('No session found — redirecting…');
   redirect();
 })();
 
