@@ -4388,10 +4388,10 @@ body.lc-scroll-lock{overflow:hidden}
     </li>
     <li><a href="#fna" class="nav-cta"><span>Free Analysis</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></a></li>
   </ul>
-  <button class="partner-login-btn" id="partner-login-btn" type="button" aria-label="Partner portal login">
+  <a href="/partner-login.html" class="partner-login-btn" id="partner-login-btn" aria-label="Partner portal login">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
     <span>Partner Login</span>
-  </button>
+  </a>
   <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" type="button">
     <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
     <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -4424,7 +4424,7 @@ body.lc-scroll-lock{overflow:hidden}
       <li><a href="#testimonials">Client Stories</a></li>
       <li><a href="#about">About Veer</a></li>
       <li><a href="#hiring">Join Our Team</a></li>
-      <li><a href="#" class="mobile-partner-login" id="mobile-partner-login">Partner Login</a></li>
+      <li><a href="/partner-login.html" class="mobile-partner-login" id="mobile-partner-login">Partner Login</a></li>
     </ul>
     <a href="#cta" class="mobile-menu-cta" data-calendly-open>
       <span>Book Private Consultation</span>
@@ -7016,7 +7016,7 @@ function closePartnerModal() {
   if (notice) notice.classList.remove('show');
 }
 
-if (partnerBtn) partnerBtn.addEventListener('click', openPartnerModal);
+// Partner login now links directly to /partner-login.html
 if (partnerClose) partnerClose.addEventListener('click', closePartnerModal);
 if (partnerBackdrop) partnerBackdrop.addEventListener('click', closePartnerModal);
 
@@ -8301,7 +8301,7 @@ if (partnerForm) {
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
             Facebook
           </a>
-          <a class="nl-share-btn email-share" href="/cdn-cgi/l/email-protection#37084442555d5254430a6e5842451205074552435e45525a525943120507545842594353584059120507127205120f07120e03120507435f5212050753565e5b4e12050754584443120507585112050740565e435e5950115558534e0a7e12050754565a52120507565445584444120507435f5e441205074552435e45525a5259431205075458425943535840591205074358585b120507565953120507435f5212050753565e5b4e12050758474758454342595e434e1205075458444312050759425a5552451205075a5653521205075a52120507435f5e595c12050758511205074e584219120507605845435f120507021205075a5e59424352441204761205075f4343474412047612057112057151565a5e5b4e4052565b435f5042564553195952435b5e514e19564747120571">
+          <a class="nl-share-btn email-share" href="/cdn-cgi/l/email-protection#122d616770787771662f4b7d67603720226077667b60777f777c66372022717d677c66767d657c372022375720372a22372b26372022667a7737202276737b7e6b372022717d61663720227d7437202265737b667b7c7534707d766b2f5b37202271737f773720227371607d6161372022667a7b613720226077667b60777f777c66372022717d677c66767d657c372022667d7d7e372022737c76372022667a7737202276737b7e6b3720227d62627d6066677c7b666b372022717d61663720227c677f7077603720227f7376773720227f77372022667a7b7c793720227d743720226b7d673c372022457d60667a372022273720227f7b7c676677613721533720227a6666626137215337205437205474737f7b7e6b6577737e667a75677360763c7c77667e7b746b3c736262372054">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             Email a Friend
           </a>
