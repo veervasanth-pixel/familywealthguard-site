@@ -520,7 +520,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 </div><!-- end main -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
-// v11-head-capture
+// v12-wait-token
 // Safety timeout — if portal doesn't load in 8 seconds show error
 setTimeout(() => {
   const g = document.getElementById('auth-guard');
@@ -539,6 +539,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // ── Auth guard using plain fetch (no SDK needed) ────────────────
 (async () => {
   try {
+    // Wait up to 2 seconds for __sbToken to be set by head script
+    let waited = 0;
+    while (!window.__sbToken && waited < 2000) {
+      await new Promise(r => setTimeout(r, 100));
+      waited += 100;
+    }
+    console.log('Waited for token:', waited + 'ms', 'found:', !!window.__sbToken);
+
     let accessToken = null;
     let userEmail = null;
     let userName = null;
