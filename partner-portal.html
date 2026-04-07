@@ -249,6 +249,31 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   .welcome-banner{padding:1.4rem}
 }
 </style>
+<script>
+// Capture token IMMEDIATELY before anything else runs
+(function(){
+  var h = window.location.hash;
+  if(h && h.indexOf('access_token') > -1){
+    try{
+      var p = new URLSearchParams(h.substring(1));
+      var t = p.get('access_token');
+      var rt = p.get('refresh_token');
+      if(t){
+        window.__sbToken = t;
+        window.__sbRefresh = rt;
+        // Save to localStorage immediately
+        localStorage.setItem('sb_portal_token', JSON.stringify({
+          access_token: t,
+          refresh_token: rt,
+          ts: Date.now()
+        }));
+        // Clean URL
+        history.replaceState(null,'',window.location.pathname);
+      }
+    }catch(e){}
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -495,7 +520,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 </div><!-- end main -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
-// v10-debug-auth
+// v11-head-capture
 // Safety timeout — if portal doesn't load in 8 seconds show error
 setTimeout(() => {
   const g = document.getElementById('auth-guard');
@@ -518,16 +543,35 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     let userEmail = null;
     let userName = null;
 
-    // Method 1: Check URL hash (fresh Google OAuth redirect)
-    const hash = window.location.hash;
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1));
-      accessToken = params.get('access_token');
-      history.replaceState(null, '', window.location.pathname);
-      console.log('Token from URL hash:', accessToken ? 'found' : 'missing');
+    // Method 1: Check window.__sbToken (captured in <head> before page loaded)
+    if (window.__sbToken) {
+      accessToken = window.__sbToken;
+      console.log('Token from head capture:', accessToken.substring(0,15)+'...');
     }
 
-    // Method 2: Scan ALL localStorage keys for any Supabase token
+    // Method 2: Check URL hash (backup)
+    if (!accessToken) {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1));
+        accessToken = params.get('access_token');
+        history.replaceState(null, '', window.location.pathname);
+        console.log('Token from URL hash:', accessToken ? 'found' : 'missing');
+      }
+    }
+
+    // Method 3: Check our saved token from localStorage
+    if (!accessToken) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('sb_portal_token') || 'null');
+        if (saved && saved.access_token && (Date.now() - saved.ts) < 3600000) {
+          accessToken = saved.access_token;
+          console.log('Token from sb_portal_token cache');
+        }
+      } catch(e) {}
+    }
+
+    // Method 4: Scan ALL localStorage keys for any Supabase token
     if (!accessToken) {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
