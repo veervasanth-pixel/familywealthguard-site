@@ -249,7 +249,6 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   .welcome-banner{padding:1.4rem}
 }
 </style>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 </head>
 <body>
@@ -498,88 +497,115 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
 // ── Auth & Security (SDK-based) ─────────────────────────────────
-// Wait for Supabase SDK to be available
-function initAuth() {
-  if (typeof supabase === 'undefined') {
-    setTimeout(initAuth, 100);
+// ── Auth — pure fetch, zero dependencies ─────────────────────
+(function() {
+  var URL  = 'https://cdbmvguessbzhnmragne.supabase.co';
+  var AKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
+  var STORAGE_KEY = 'sb-cdbmvguessbzhnmragne-auth-token';
+
+  function redirect() {
+    window.location.replace('/partner-login.html');
+  }
+
+  function showPortal(user) {
+    var email = (user && user.email) || 'Partner';
+    var meta  = user && user.user_metadata;
+    var name  = (meta && meta.full_name) || (meta && meta.name) || email.split('@')[0];
+    var first = name.split(' ')[0];
+    var init  = name.split(' ').slice(0,2).map(function(w){return w[0]||''}).join('').toUpperCase();
+    var el = {
+      av: document.getElementById('user-avatar'),
+      un: document.getElementById('user-name'),
+      us: document.getElementById('user-state'),
+      fn: document.getElementById('first-name'),
+      g:  document.getElementById('auth-guard')
+    };
+    if(el.av) el.av.textContent = init;
+    if(el.un) el.un.textContent = name;
+    if(el.us) el.us.textContent = email;
+    if(el.fn) el.fn.textContent = first;
+    if(el.g)  el.g.style.display = 'none';
+    if(window.Calendly) Calendly.initInlineWidgets();
+  }
+
+  function verifyAndShow(token) {
+    fetch(URL + '/auth/v1/user', {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'apikey': AKEY
+      }
+    }).then(function(r) {
+      if (r.ok) {
+        return r.json().then(function(user) {
+          // Save valid session
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            access_token: token,
+            user: user,
+            ts: Date.now()
+          }));
+          showPortal(user);
+        });
+      } else {
+        // Token rejected — clear and redirect
+        localStorage.removeItem(STORAGE_KEY);
+        redirect();
+      }
+    }).catch(function() {
+      // Network error — show portal if we have user data cached
+      var cached = getStoredSession();
+      if (cached && cached.user) {
+        showPortal(cached.user);
+      } else {
+        redirect();
+      }
+    });
+  }
+
+  function getStoredSession() {
+    // Check our storage key
+    try {
+      var s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (s && s.access_token && s.ts && (Date.now() - s.ts) < 3600000) return s;
+    } catch(e) {}
+    // Scan all localStorage for any Supabase session
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (!k || (!k.includes('supabase') && !k.includes('sb-'))) continue;
+      try {
+        var v = JSON.parse(localStorage.getItem(k));
+        if (v && v.access_token) return v;
+        // Supabase SDK stores nested: { currentSession: { access_token: ... } }
+        if (v && v.currentSession && v.currentSession.access_token) {
+          return { access_token: v.currentSession.access_token, user: v.currentSession.user };
+        }
+      } catch(e) {}
+    }
+    return null;
+  }
+
+  // ── Main flow ──────────────────────────────────────────────
+  // Step 1: Check URL hash (fresh OAuth redirect)
+  var hash = window.location.hash;
+  if (hash && hash.includes('access_token=')) {
+    var params = new URLSearchParams(hash.substring(1));
+    var token  = params.get('access_token');
+    if (token) {
+      history.replaceState(null, '', window.location.pathname);
+      verifyAndShow(token);
+      return;
+    }
+  }
+
+  // Step 2: Check stored session
+  var stored = getStoredSession();
+  if (stored && stored.access_token) {
+    verifyAndShow(stored.access_token);
     return;
   }
-  var SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
-var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    flowType: 'implicit',
-    detectSessionInUrl: true,
-    persistSession: true
-  }
-});
 
-function showPortal(user) {
-  var email = (user && user.email) ? user.email : 'Partner';
-  var name  = (user && user.user_metadata && user.user_metadata.full_name)
-              ? user.user_metadata.full_name
-              : email.split('@')[0];
-  var first = name.split(' ')[0];
-  var init  = name.split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
-  var av = document.getElementById('user-avatar');
-  var un = document.getElementById('user-name');
-  var us = document.getElementById('user-state');
-  var fn = document.getElementById('first-name');
-  var g  = document.getElementById('auth-guard');
-  if(av) av.textContent = init;
-  if(un) un.textContent = name;
-  if(us) us.textContent = email;
-  if(fn) fn.textContent = first;
-  if(g)  g.style.display = 'none';
-  if(window.Calendly) Calendly.initInlineWidgets();
-}
-
-// Listen for auth state FIRST — this fires when SDK processes URL hash
-// Then fall back to getSession for returning visitors
-var authHandled = false;
-
-sb.auth.onAuthStateChange(function(event, session) {
-  if (authHandled) return;
-  if (event === 'SIGNED_IN' && session) {
-    authHandled = true;
-    showPortal(session.user);
-  } else if (event === 'SIGNED_OUT') {
-    authHandled = true;
-    window.location.href = '/partner-login.html';
-  }
-});
-
-// Also check existing session (for returning visitors not coming from OAuth)
-sb.auth.getSession().then(function(result) {
-  if (authHandled) return; // already handled by onAuthStateChange
-  var session = result.data.session;
-  if (session) {
-    authHandled = true;
-    showPortal(session.user);
-  } else {
-    // Give onAuthStateChange 2 more seconds to fire (OAuth redirect processing)
-    setTimeout(function() {
-      if (!authHandled) {
-        window.location.href = '/partner-login.html';
-      }
-    }, 2000);
-  }
-}).catch(function() {
-  if (!authHandled) window.location.href = '/partner-login.html';
-});
-
-// Sign out handler
-document.addEventListener('DOMContentLoaded', function() {
-  var btn = document.getElementById('signout-btn');
-  if(btn) btn.addEventListener('click', function() {
-    sb.auth.signOut().then(function() {
-      window.location.href = '/partner-login.html';
-    });
-  });
-});
-
-} // end initAuth
-initAuth();
+  // Step 3: No token anywhere — redirect
+  redirect();
+})();
 
 // ── Tab switching ───────────────────────────────────────
 const TABS = { overview: 'Overview', schedule: 'Schedule Time', resources: 'Training & Resources', announcements: 'Announcements' };
