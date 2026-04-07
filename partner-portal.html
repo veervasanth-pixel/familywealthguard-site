@@ -520,156 +520,72 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 </div><!-- end main -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
-// v12-wait-token
-// Safety timeout — if portal doesn't load in 8 seconds show error
-setTimeout(() => {
-  const g = document.getElementById('auth-guard');
-  if (g && g.style.display !== 'none') {
-    g.innerHTML = '<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
-      '<p style="color:#F08080;font-size:1rem;margin-bottom:1rem">Portal failed to load.</p>' +
-      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700;margin-right:0.5rem">Refresh</button>' +
-      '<button onclick="window.location.href='/partner-login.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer">Back to Login</button>' +
-      '</div>';
+// v13-simple
+// Remove spinner immediately — check token in background
+(function(){
+  // Step 1: Remove spinner right away if we have a token anywhere
+  var token = null;
+  
+  // Check URL hash
+  var h = window.location.hash;
+  if(h && h.indexOf('access_token') > -1){
+    var p = new URLSearchParams(h.substring(1));
+    token = p.get('access_token');
+    if(token) history.replaceState(null,'',window.location.pathname);
   }
-}, 8000);
-
-const SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
-
-// ── Auth guard using plain fetch (no SDK needed) ────────────────
-(async () => {
-  try {
-    // Wait up to 2 seconds for __sbToken to be set by head script
-    let waited = 0;
-    while (!window.__sbToken && waited < 2000) {
-      await new Promise(r => setTimeout(r, 100));
-      waited += 100;
+  
+  // Check localStorage for any supabase key
+  if(!token){
+    for(var i=0;i<localStorage.length;i++){
+      var k = localStorage.key(i);
+      try{
+        var v = JSON.parse(localStorage.getItem(k));
+        if(v && v.access_token){ token = v.access_token; break; }
+      }catch(e){}
     }
-    console.log('Waited for token:', waited + 'ms', 'found:', !!window.__sbToken);
+  }
 
-    let accessToken = null;
-    let userEmail = null;
-    let userName = null;
-
-    // Method 1: Check window.__sbToken (captured in <head> before page loaded)
-    if (window.__sbToken) {
-      accessToken = window.__sbToken;
-      console.log('Token from head capture:', accessToken.substring(0,15)+'...');
-    }
-
-    // Method 2: Check URL hash (backup)
-    if (!accessToken) {
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        const params = new URLSearchParams(hash.substring(1));
-        accessToken = params.get('access_token');
-        history.replaceState(null, '', window.location.pathname);
-        console.log('Token from URL hash:', accessToken ? 'found' : 'missing');
+  if(token){
+    // We have a token — remove spinner immediately and populate UI
+    document.getElementById('auth-guard').style.display='none';
+    // Get user info asynchronously
+    fetch('https://cdbmvguessbzhnmragne.supabase.co/auth/v1/user',{
+      headers:{
+        'Authorization':'Bearer '+token,
+        'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0'
       }
-    }
-
-    // Method 3: Check our saved token from localStorage
-    if (!accessToken) {
-      try {
-        const saved = JSON.parse(localStorage.getItem('sb_portal_token') || 'null');
-        if (saved && saved.access_token && (Date.now() - saved.ts) < 3600000) {
-          accessToken = saved.access_token;
-          console.log('Token from sb_portal_token cache');
-        }
-      } catch(e) {}
-    }
-
-    // Method 4: Scan ALL localStorage keys for any Supabase token
-    if (!accessToken) {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('sb-'))) {
-          try {
-            const val = JSON.parse(localStorage.getItem(key));
-            if (val && val.access_token) {
-              accessToken = val.access_token;
-              console.log('Token from localStorage key:', key);
-              break;
-            }
-          } catch(e) {}
-        }
+    }).then(function(r){return r.json();}).then(function(u){
+      var email = u.email||'Partner';
+      var name = (u.user_metadata&&u.user_metadata.full_name)||email.split('@')[0]||'Partner';
+      var first = name.split(' ')[0];
+      var init = name.split(' ').slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
+      var av = document.getElementById('user-avatar');
+      var un = document.getElementById('user-name');
+      var us = document.getElementById('user-state');
+      var fn = document.getElementById('first-name');
+      if(av) av.textContent=init;
+      if(un) un.textContent=name;
+      if(us) us.textContent=email;
+      if(fn) fn.textContent=first;
+      // Save token
+      localStorage.setItem('sb_portal_token', JSON.stringify({access_token:token,ts:Date.now()}));
+    }).catch(function(){});
+    if(window.Calendly) Calendly.initInlineWidgets();
+  } else {
+    // No token — show login button after 3 seconds instead of spinning
+    setTimeout(function(){
+      var g = document.getElementById('auth-guard');
+      if(g && g.style.display!=='none'){
+        g.innerHTML='<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
+          '<p style="margin-bottom:1.5rem;color:rgba(255,255,255,0.7)">Please sign in to access the partner portal.</p>' +
+          '<a href="/partner-login.html" style="background:#C5A052;color:#0A0E1A;padding:0.8rem 2rem;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem">Sign In</a>' +
+          '</div>';
       }
-    }
-
-    // Method 3: Check sessionStorage too
-    if (!accessToken) {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('sb-'))) {
-          try {
-            const val = JSON.parse(sessionStorage.getItem(key));
-            if (val && val.access_token) {
-              accessToken = val.access_token;
-              console.log('Token from sessionStorage key:', key);
-              break;
-            }
-          } catch(e) {}
-        }
-      }
-    }
-
-    console.log('Final token status:', accessToken ? 'FOUND' : 'NOT FOUND');
-    console.log('localStorage keys:', Object.keys(localStorage));
-
-    // No token found — redirect to login
-    if (!accessToken) {
-      console.log('No token — redirecting to login');
-      window.location.href = '/partner-login.html';
-      return;
-    }
-
-    // Get user info from Supabase using token
-    const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
-      headers: {
-        'Authorization': 'Bearer ' + accessToken,
-        'apikey': SUPABASE_ANON_KEY
-      }
-    });
-
-    if (!userRes.ok) {
-      // Token expired or invalid
-      localStorage.removeItem('sb-cdbmvguessbzhnmragne-auth-token');
-      window.location.href = '/partner-login.html';
-      return;
-    }
-
-    const user = await userRes.json();
-    userEmail = user.email || '';
-    userName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Partner';
-
-    // Save token to localStorage for future visits
-    localStorage.setItem('sb-cdbmvguessbzhnmragne-auth-token', JSON.stringify({
-      access_token: accessToken,
-      user: user
-    }));
-
-    // ── Load portal ─────────────────────────────────────────
-    const firstName = userName.split(' ')[0];
-    const initials = userName.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
-
-    document.getElementById('user-avatar').textContent = initials;
-    document.getElementById('user-name').textContent = userName;
-    document.getElementById('user-state').textContent = userEmail;
-    document.getElementById('first-name').textContent = firstName;
-    document.getElementById('auth-guard').style.display = 'none';
-
-    if (window.Calendly) Calendly.initInlineWidgets();
-
-  } catch(err) {
-    document.getElementById('auth-guard').innerHTML =
-      '<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
-      '<p style="color:#F08080;margin-bottom:1rem">Error: ' + err.message + '</p>' +
-      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700">Try Again</button>' +
-      '</div>';
+    }, 3000);
   }
 })();
 
-// ── Tab switching
+// ── Tab switching// ── Tab switching
 
 // ── Tab switching ───────────────────────────────────────
 const TABS = { overview: 'Overview', schedule: 'Schedule Time', resources: 'Training & Resources', announcements: 'Announcements' };
