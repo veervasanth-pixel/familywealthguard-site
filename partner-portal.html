@@ -528,25 +528,38 @@ function showPortal(user) {
   if(window.Calendly) Calendly.initInlineWidgets();
 }
 
-// SDK handles token extraction from URL hash automatically
-sb.auth.getSession().then(function(result) {
-  var session = result.data.session;
-  if (!session) {
-    // No session — redirect to login
-    window.location.href = '/partner-login.html';
-    return;
-  }
-  // Valid session — show portal
-  showPortal(session.user);
+// Listen for auth state FIRST — this fires when SDK processes URL hash
+// Then fall back to getSession for returning visitors
+var authHandled = false;
 
-  // Listen for auth state changes (handles token refresh etc)
-  sb.auth.onAuthStateChange(function(event, newSession) {
-    if (event === 'SIGNED_OUT' || !newSession) {
-      window.location.href = '/partner-login.html';
-    }
-  });
+sb.auth.onAuthStateChange(function(event, session) {
+  if (authHandled) return;
+  if (event === 'SIGNED_IN' && session) {
+    authHandled = true;
+    showPortal(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    authHandled = true;
+    window.location.href = '/partner-login.html';
+  }
+});
+
+// Also check existing session (for returning visitors not coming from OAuth)
+sb.auth.getSession().then(function(result) {
+  if (authHandled) return; // already handled by onAuthStateChange
+  var session = result.data.session;
+  if (session) {
+    authHandled = true;
+    showPortal(session.user);
+  } else {
+    // Give onAuthStateChange 2 more seconds to fire (OAuth redirect processing)
+    setTimeout(function() {
+      if (!authHandled) {
+        window.location.href = '/partner-login.html';
+      }
+    }, 2000);
+  }
 }).catch(function() {
-  window.location.href = '/partner-login.html';
+  if (!authHandled) window.location.href = '/partner-login.html';
 });
 
 // Sign out handler
