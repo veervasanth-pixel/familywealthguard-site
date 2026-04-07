@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Partner Portal · FamilyGuard360</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -495,15 +494,15 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
   </div><!-- end content -->
 </div><!-- end main -->
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-// Safety timeout — if portal doesn't load in 8 seconds, show error
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
+// v9-fetch-noCDN
+// Safety timeout — if portal doesn't load in 8 seconds show error
 setTimeout(() => {
   const g = document.getElementById('auth-guard');
   if (g && g.style.display !== 'none') {
     g.innerHTML = '<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
       '<p style="color:#F08080;font-size:1rem;margin-bottom:1rem">Portal failed to load.</p>' +
-      '<p style="color:rgba(255,255,255,0.5);font-size:0.82rem;margin-bottom:1.5rem">This is usually a network issue loading the auth library. Please try refreshing.</p>' +
-      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700;margin-right:0.5rem">Refresh Page</button>' +
+      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700;margin-right:0.5rem">Refresh</button>' +
       '<button onclick="window.location.href='/partner-login.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer">Back to Login</button>' +
       '</div>';
   }
@@ -511,27 +510,73 @@ setTimeout(() => {
 
 const SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ── Auth guard ──────────────────────────────────────────
+// ── Auth guard using plain fetch (no SDK needed) ────────────────
 (async () => {
   try {
-    const { data: { session } } = await sb.auth.getSession();
+    // Get session from URL hash (after OAuth redirect) or localStorage
+    let accessToken = null;
+    let userEmail = null;
+    let userName = null;
 
-    if (!session) {
+    // Check URL hash for access_token (fresh OAuth redirect)
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.substring(1));
+      accessToken = params.get('access_token');
+      // Clean URL
+      history.replaceState(null, '', window.location.pathname);
+    }
+
+    // If no token in URL, check localStorage (existing session)
+    if (!accessToken) {
+      const stored = localStorage.getItem('sb-cdbmvguessbzhnmragne-auth-token');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          accessToken = parsed.access_token;
+        } catch(e) {}
+      }
+    }
+
+    // No token found — redirect to login
+    if (!accessToken) {
       window.location.href = '/partner-login.html';
       return;
     }
 
-    // Session valid — load portal immediately, no profile check
-    const email = session.user.email || '';
-    const name  = session.user.user_metadata?.full_name || email.split('@')[0] || 'Partner';
-    const firstName = name.split(' ')[0];
-    const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    // Get user info from Supabase using token
+    const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+
+    if (!userRes.ok) {
+      // Token expired or invalid
+      localStorage.removeItem('sb-cdbmvguessbzhnmragne-auth-token');
+      window.location.href = '/partner-login.html';
+      return;
+    }
+
+    const user = await userRes.json();
+    userEmail = user.email || '';
+    userName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Partner';
+
+    // Save token to localStorage for future visits
+    localStorage.setItem('sb-cdbmvguessbzhnmragne-auth-token', JSON.stringify({
+      access_token: accessToken,
+      user: user
+    }));
+
+    // ── Load portal ─────────────────────────────────────────
+    const firstName = userName.split(' ')[0];
+    const initials = userName.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
 
     document.getElementById('user-avatar').textContent = initials;
-    document.getElementById('user-name').textContent = name;
-    document.getElementById('user-state').textContent = email;
+    document.getElementById('user-name').textContent = userName;
+    document.getElementById('user-state').textContent = userEmail;
     document.getElementById('first-name').textContent = firstName;
     document.getElementById('auth-guard').style.display = 'none';
 
@@ -539,12 +584,14 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   } catch(err) {
     document.getElementById('auth-guard').innerHTML =
-      '<div style="color:#F5F1E8;text-align:center;padding:2rem">' +
+      '<div style="color:#F5F1E8;text-align:center;padding:2rem;max-width:400px">' +
       '<p style="color:#F08080;margin-bottom:1rem">Error: ' + err.message + '</p>' +
-      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.6rem 1.4rem;border-radius:8px;cursor:pointer;font-weight:600">Try Again</button>' +
+      '<button onclick="window.location.reload()" style="background:#C5A052;color:#0A0E1A;border:none;padding:0.7rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:700">Try Again</button>' +
       '</div>';
   }
 })();
+
+// ── Tab switching
 
 // ── Tab switching ───────────────────────────────────────
 const TABS = { overview: 'Overview', schedule: 'Schedule Time', resources: 'Training & Resources', announcements: 'Announcements' };
