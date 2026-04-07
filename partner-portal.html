@@ -588,6 +588,78 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 
 // ── Tab switching// ── Tab switching
 
+// ── Security check (runs after portal loads) ───────────────
+(function() {
+  var token = null;
+  
+  // Check window.__sbToken (set by head script on fresh login)
+  if (window.__sbToken) {
+    token = window.__sbToken;
+  }
+  
+  // Check localStorage
+  if (!token) {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      try {
+        var v = JSON.parse(localStorage.getItem(k));
+        if (v && v.access_token) { 
+          // Check if token saved in last 24 hours
+          if (!v.ts || (Date.now() - v.ts) < 86400000) {
+            token = v.access_token;
+            break;
+          }
+        }
+      } catch(e) {}
+    }
+  }
+
+  if (!token) {
+    // No token — redirect to login after brief delay
+    setTimeout(function() {
+      window.location.href = '/partner-login.html';
+    }, 800);
+    return;
+  }
+
+  // Token exists — verify it with Supabase silently
+  fetch('https://cdbmvguessbzhnmragne.supabase.co/auth/v1/user', {
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0'
+    }
+  }).then(function(r) {
+    if (!r.ok) {
+      // Invalid token — clear and redirect
+      localStorage.clear();
+      window.location.href = '/partner-login.html';
+      return;
+    }
+    return r.json();
+  }).then(function(u) {
+    if (!u) return;
+    // Populate user info
+    var email = u.email || 'Partner';
+    var name = (u.user_metadata && u.user_metadata.full_name) || email.split('@')[0] || 'Partner';
+    var first = name.split(' ')[0];
+    var init = name.split(' ').slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
+    var av = document.getElementById('user-avatar');
+    var un = document.getElementById('user-name');
+    var us = document.getElementById('user-state');
+    var fn = document.getElementById('first-name');
+    if(av) av.textContent = init;
+    if(un) un.textContent = name;
+    if(us) us.textContent = email;
+    if(fn) fn.textContent = first;
+    // Refresh token storage
+    localStorage.setItem('sb_portal_token', JSON.stringify({
+      access_token: token, ts: Date.now()
+    }));
+  }).catch(function() {
+    // Network error — don't kick out, just continue
+  });
+})();
+
 // ── Tab switching ───────────────────────────────────────
 const TABS = { overview: 'Overview', schedule: 'Schedule Time', resources: 'Training & Resources', announcements: 'Announcements' };
 function switchTab(tabId) {
