@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Partner Portal · FamilyGuard360</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -251,6 +250,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
 </head>
 <body>
 
@@ -498,7 +498,13 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false">
 // ── Auth & Security (SDK-based) ─────────────────────────────────
-var SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
+// Wait for Supabase SDK to be available
+function initAuth() {
+  if (typeof supabase === 'undefined') {
+    setTimeout(initAuth, 100);
+    return;
+  }
+  var SUPABASE_URL = 'https://cdbmvguessbzhnmragne.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -571,6 +577,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+} // end initAuth
+initAuth();
 
 // ── Tab switching ───────────────────────────────────────
 const TABS = { overview: 'Overview', schedule: 'Schedule Time', resources: 'Training & Resources', announcements: 'Announcements' };
