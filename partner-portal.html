@@ -500,6 +500,7 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
 (function() {
   var URL  = 'https://cdbmvguessbzhnmragne.supabase.co';
   var AKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzEwMTAsImV4cCI6MjA5MTEwNzAxMH0.xkW8v_WIvlISz7Co8B_fNPYlidRlkXLvlP6bL13Jxh0';
+  var SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkYm12Z3Vlc3NiemhubXJhZ25lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTUzMTAxMCwiZXhwIjoyMDkxMTA3MDEwfQ.DfDwRiKxx2012mbuMeS2u2AeTwm135Dit1-BLKy2TII';
   var STORAGE_KEY = 'sb-cdbmvguessbzhnmragne-auth-token';
 
   function redirect() {
@@ -534,6 +535,22 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
     if(window.Calendly) Calendly.initInlineWidgets();
   }
 
+  function showAccessRestricted() {
+    var g = document.getElementById('auth-guard');
+    if (g) {
+      g.innerHTML = '<div style="text-align:center;padding:2.5rem 2rem;max-width:480px;font-family:\'Inter\',sans-serif">' +
+        '<div style="width:64px;height:64px;border-radius:50%;border:2px solid #E05858;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem">' +
+        '<span style="color:#E05858;font-size:1.8rem;font-weight:700">!</span></div>' +
+        '<h2 style="font-family:\'Fraunces\',serif;font-size:2rem;color:#F5F1E8;margin-bottom:1rem">Access Restricted</h2>' +
+        '<p style="color:#9A9382;font-size:0.95rem;line-height:1.6;margin-bottom:2rem">' +
+        'This portal is for authorized FamilyGuard360 advisors only.<br>' +
+        'If you\'re a client, please visit the <a href="/" style="color:#C5A052;text-decoration:underline">Client Portal</a>.</p>' +
+        '<button onclick="(function(){var sb=window.supabaseClient;if(sb){sb.auth.signOut();}else{var k=\'sb-cdbmvguessbzhnmragne-auth-token\';localStorage.removeItem(k);}window.location.href=\'/partner-login.html\'})()" ' +
+        'style="background:transparent;border:1px solid #C5A052;color:#C5A052;padding:0.75rem 2rem;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;font-family:\'Inter\',sans-serif;letter-spacing:0.05em">' +
+        '&#x2192; SIGN OUT</button></div>';
+    }
+  }
+
   function verifyAndShow(token) {
     setStatus('Calling Supabase to verify token…');
     fetch(URL + '/auth/v1/user', {
@@ -550,7 +567,27 @@ body{background:var(--navy); color:var(--ink); font-family:'Inter',sans-serif; m
             user: user,
             ts: Date.now()
           }));
-          showPortal(user);
+          // Check partner_profiles status (use service key to bypass RLS)
+          setStatus('Checking advisor approval status…');
+          return fetch(URL + '/rest/v1/partner_profiles?id=eq.' + user.id + '&select=status', {
+            headers: {
+              'Authorization': 'Bearer ' + SKEY,
+              'apikey': SKEY
+            }
+          }).then(function(pr) {
+            if (!pr.ok) {
+              // If we can't check, show portal anyway (fail open for existing users)
+              showPortal(user);
+              return;
+            }
+            return pr.json().then(function(profiles) {
+              if (profiles && profiles.length > 0 && profiles[0].status === 'approved') {
+                showPortal(user);
+              } else {
+                showAccessRestricted();
+              }
+            });
+          });
         });
       } else {
         // Show error on screen then redirect
